@@ -76,3 +76,7 @@ void PPU::cpuWrite(uint16_t addr, uint8_t data) {
 		break;
 	}
 }
+
+void PPU::clock() {
+
+}
