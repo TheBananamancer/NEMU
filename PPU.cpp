@@ -82,6 +82,9 @@ void PPU::clock() {
 	if (cycle > 340) {
 		cycle = 0;
 		scanline++;
+		if (scanline == 241) {
+			status |= STATUS_VBLANK_MASK;
+		}
 		if (scanline > 260) {
 			scanline = 0;
 		}
