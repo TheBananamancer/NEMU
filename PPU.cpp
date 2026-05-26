@@ -78,5 +78,12 @@ void PPU::cpuWrite(uint16_t addr, uint8_t data) {
 }
 
 void PPU::clock() {
-
+	cycle++;
+	if (cycle > 340) {
+		cycle = 0;
+		scanline++;
+		if (scanline > 260) {
+			scanline = 0;
+		}
+	}
 }
