@@ -33,9 +33,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
 	}
 }
 
-uint8_t Bus::read(uint16_t addr, bool bReadOnly) {
-	uint8_t data = 0x00;
-
+uint8_t Bus::read(uint16_t addr) {
 	if (cart->cpuRead(addr, data)) {
 		// Cartridge handled it
 	}
@@ -43,8 +41,17 @@ uint8_t Bus::read(uint16_t addr, bool bReadOnly) {
 		data = cpuRam[addr & 0x07FF];
 	}
 	else if (addr >= 0x2000 && addr <= 0x3FFF) {
-		data = ppu.cpuRead(addr & 0x0007, bReadOnly);
+		data = ppu.cpuRead(addr & 0x0007, false);
+	}
+	return data;
+}
+
+void Bus::clock() {
+	ppu.clock();
+	
+	if (systemClockCounter % 3 == 0) {
+		cpu.clock();
 	}
 
-	return data;
+	systemClockCounter++;
 }
