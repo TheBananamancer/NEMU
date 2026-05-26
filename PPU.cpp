@@ -52,3 +52,27 @@ uint8_t PPU::cpuRead(uint16_t addr, bool bReadOnly) {
 
 	return data;
 }
+
+void PPU::cpuWrite(uint16_t addr, uint8_t data) {
+	switch (addr) {
+	case 0x0000: // Control
+		break;
+	case 0x0001: // Mask
+		break;
+	case 0x0002: // Status
+		// Only VBlank can be cleared by CPU
+		break;
+	case 0x0003: // OAM Address
+		oamAddress = data;
+		break;
+	case 0x0004: // OAM Data
+		oamMemory[oamAddress] = data;
+		break;
+	case 0x0005: // Scroll
+		break;
+	case 0x0006: // PPU Address
+		break;
+	case 0x0007: // PPU Data
+		break;
+	}
+}
