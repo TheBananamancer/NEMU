@@ -1,5 +1,8 @@
 #pragma once
+
 #include <cstdint>
+#include "Cartridge.h"
+#include "Bus.h"
 
 class PPU
 {
@@ -8,45 +11,37 @@ public:
 	~PPU();
 
 public:
-	uint8_t cpuRead(uint16_t addr, bool bReadOnly);
+	uint8_t cpuRead(uint16_t addr, bool bReadOnly = false);
 	void cpuWrite(uint16_t addr, uint8_t data);
+	uint8_t ppuRead(uint16_t addr);
+	void ppuWrite(uint16_t addr, uint8_t data);
 
 	void clock();
 
-private:
-
-	// PPU internal memory
-
+public:
 	uint8_t patternTable[2][4096];
-	uint8_t nameTable[2][1024];
+	uint8_t nameTable[4][1024];
 	uint8_t paletteTable[32];
-
 	uint8_t oamMemory[256];
 
-	// PPU registers
-	uint8_t control = 0x00;
-	uint8_t mask = 0x00;
-	uint8_t status = 0x00;
-	uint8_t oamAddr = 0x00;
-	uint8_t oamData = 0x00;
-	uint8_t scroll = 0x00;
-	uint8_t addr = 0x00;
-	uint8_t dataBuffer = 0x00;
+	uint8_t status = 0x00; // PPU Status Register
+	uint8_t mask = 0x00;   // PPU Mask Register
+	uint8_t control = 0x00;// PPU Control Register
+	uint8_t oamAddress = 0x00; // OAM Address Register
 
-	bool bAddressLatch = false;
+	uint16_t ppuAddress = 0x0000; // PPU Address Register
+	uint16_t ppuAddressLatch = 0x0000;
 
-	// PPU Clock
-	uint16_t scanline = 0;
-	uint16_t cycle = 0;
+	uint8_t ppuDataBuffer = 0x00; // PPU Data buffer (for reads)
 
+	bool frame_complete = false;
 
-	// PPU memory map constants
-	static constexpr uint16_t PATTERN_TABLE0_START = 0x0000;
-	static constexpr uint16_t PATTERN_TABLE1_START = 0x1000;
-	static constexpr uint16_t NAMETABLE0_START = 0x2000;
-	static constexpr uint16_t NAMETABLE1_START = 0x2400;
-	static constexpr uint16_t NAMETABLE2_START = 0x2800;
-	static constexpr uint16_t NAMETABLE3_START = 0x2C00;
-	static constexpr uint16_t PALETTE_START = 0x3F00;
+	int scanline = 0;
+	int cycle = 0;
 
+	Cartridge* cart = nullptr;
+	Bus* bus = nullptr;
+
+private:
+	uint8_t ppuAddressLatchCounter = 0;
 };

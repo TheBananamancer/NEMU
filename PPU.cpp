@@ -17,6 +17,8 @@ PPU::PPU() {
 	for (auto& b : paletteTable) b = 0x00;
 
 	memset(oamMemory, 0x00, 256);
+	ppuAddress = 0x0000;
+	ppuAddressLatch = 0x00;
 }
 
 PPU::~PPU() {
@@ -32,9 +34,9 @@ uint8_t PPU::cpuRead(uint16_t addr, bool bReadOnly) {
 	case 0x0001: // Mask
 		break;
 	case 0x0002: // Status
-		data = (status & 0xE0) | (dataBuffer & 0x1F);
-		status &= ~STATUS_VBLANK_MASK; // Clear vblank flag on read
-		bAddressLatch = false;
+		data = (status & 0xE0) | (ppuDataBuffer & 0x1F);
+		status &= ~STATUS_VBLANK_MASK; // Clear VBLANK on read
+		ppuAddressLatch = 0x00;
 		break;
 	case 0x0003: // OAM Address
 		break;
@@ -43,10 +45,17 @@ uint8_t PPU::cpuRead(uint16_t addr, bool bReadOnly) {
 		break;
 	case 0x0005: // Scroll
 		break;
-	case 0x0006: // PPU Address
+	case 0x0006: // Address
 		break;
-	case 0x0007: // PPU Data
-		data = dataBuffer;
+	case 0x0007: // Data
+		data = ppuDataBuffer; // Return previous value
+		ppuDataBuffer = ppuRead(ppuAddress);
+		if ((control & 0x04) == 0) // VRAM increment mode
+			ppuAddress += 1;
+		else
+			ppuAddress += 32;
+
+		ppuAddress &= 0x3FFF;
 		break;
 	}
 
@@ -56,11 +65,12 @@ uint8_t PPU::cpuRead(uint16_t addr, bool bReadOnly) {
 void PPU::cpuWrite(uint16_t addr, uint8_t data) {
 	switch (addr) {
 	case 0x0000: // Control
+		control = data;
 		break;
 	case 0x0001: // Mask
+		mask = data;
 		break;
-	case 0x0002: // Status
-		// Only VBlank can be cleared by CPU
+	case 0x0002: // Status - write clears vblank flag
 		break;
 	case 0x0003: // OAM Address
 		oamAddress = data;
@@ -70,23 +80,106 @@ void PPU::cpuWrite(uint16_t addr, uint8_t data) {
 		break;
 	case 0x0005: // Scroll
 		break;
-	case 0x0006: // PPU Address
+	case 0x0006: // Address
+		ppuAddressLatch <<= 8;
+		ppuAddressLatch |= data;
+
+		if (ppuAddressLatchCounter == 0) {
+			ppuAddress = (ppuAddressLatch & 0x3FFF);
+		}
+		ppuAddressLatchCounter ^= 1;
+
 		break;
-	case 0x0007: // PPU Data
+	case 0x0007: // Data
+		ppuWrite(ppuAddress, data);
+		if ((control & 0x04) == 0)
+			ppuAddress += 1;
+		else
+			ppuAddress += 32;
+
+		ppuAddress &= 0x3FFF;
 		break;
 	}
 }
 
+uint8_t PPU::ppuRead(uint16_t addr) {
+	uint8_t data = 0x00;
+	addr &= 0x3FFF;
+
+	if (cart->ppuRead(addr, data)) {
+		
+	}
+	else if (addr >= 0x0000 && addr <= 0x1FFF) {
+		data = patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF];
+	}
+	else if (addr >= 0x2000 && addr <= 0x3EFF) {
+		addr &= 0x0FFF;
+		if (addr >= 0x0000 && addr <= 0x03FF) {
+			data = nameTable[0][addr];
+		}
+		else if (addr >= 0x0400 && addr <= 0x07FF) {
+			data = nameTable[1][addr & 0x03FF];
+		}
+		else if (addr >= 0x0800 && addr <= 0x0BFF) {
+			data = nameTable[2][addr & 0x03FF];
+		}
+		else if (addr >= 0x0C00 && addr <= 0x0FFF) {
+			data = nameTable[3][addr & 0x03FF];
+		}
+	}
+	else if (addr >= 0x3F00 && addr <= 0x3FFF) {
+		addr &= 0x001F;
+		data = paletteTable[addr];
+	}
+
+	return data;
+}
+
+void PPU::ppuWrite(uint16_t addr, uint8_t data) {
+	addr &= 0x3FFF;
+
+	if (cart->ppuWrite(addr, data)) {
+
+	}
+	else if (addr >= 0x0000 && addr <= 0x1FFF) {
+		patternTable[(addr & 0x1000) >> 12][addr & 0x0FFF] = data;
+	}
+	else if (addr >= 0x2000 && addr <= 0x3EFF) {
+		addr &= 0x0FFF;
+		if (addr >= 0x0000 && addr <= 0x03FF) {
+			nameTable[0][addr] = data;
+		}
+		else if (addr >= 0x0400 && addr <= 0x07FF) {
+			nameTable[1][addr & 0x03FF] = data;
+		}
+		else if (addr >= 0x0800 && addr <= 0x0BFF) {
+			nameTable[2][addr & 0x03FF] = data;
+		}
+		else if (addr >= 0x0C00 && addr <= 0x0FFF) {
+			nameTable[3][addr & 0x03FF] = data;
+		}
+	}
+	else if (addr >= 0x3F00 && addr <= 0x3FFF) {
+		addr &= 0x001F;
+		paletteTable[addr] = data;
+	}
+}
+
 void PPU::clock() {
+	scanline++;
+	if (scanline >= 261) {
+		scanline = -1;
+		frame_complete = true;
+		status |= STATUS_VBLANK_MASK;
+	}
+
+	if (scanline == 241) {
+		status |= STATUS_VBLANK_MASK;
+		bus->cpu.nmi();
+	}
+
 	cycle++;
-	if (cycle > 340) {
+	if (cycle >= 340) {
 		cycle = 0;
-		scanline++;
-		if (scanline == 241) {
-			status |= STATUS_VBLANK_MASK;
-		}
-		if (scanline > 260) {
-			scanline = 0;
-		}
 	}
 }
