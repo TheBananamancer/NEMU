@@ -37,6 +37,7 @@ uint8_t PPU::cpuRead(uint16_t addr, bool bReadOnly) {
 		data = (status & 0xE0) | (ppuDataBuffer & 0x1F);
 		status &= ~STATUS_VBLANK_MASK; // Clear VBLANK on read
 		ppuAddressLatch = 0x00;
+		ppuAddressLatchToggle = false;
 		break;
 	case 0x0003: // OAM Address
 		break;
@@ -81,14 +82,14 @@ void PPU::cpuWrite(uint16_t addr, uint8_t data) {
 	case 0x0005: // Scroll
 		break;
 	case 0x0006: // Address
-		ppuAddressLatch <<= 8;
-		ppuAddressLatch |= data;
-
-		if (ppuAddressLatchCounter == 0) {
-			ppuAddress = (ppuAddressLatch & 0x3FFF);
+		if (!ppuAddressLatchToggle) {
+			ppuAddressLatch = (ppuAddressLatch & 0x00FF) | (data << 8);
+		} else {
+			ppuAddressLatch = (ppuAddressLatch & 0xFF00) | data;
+			ppuAddress = ppuAddressLatch;
+			ppuAddress &= 0x3FFF;
 		}
-		ppuAddressLatchCounter ^= 1;
-
+		ppuAddressLatchToggle = !ppuAddressLatchToggle;
 		break;
 	case 0x0007: // Data
 		ppuWrite(ppuAddress, data);

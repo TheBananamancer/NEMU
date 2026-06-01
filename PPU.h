@@ -43,5 +43,5 @@ public:
 	Bus* bus = nullptr;
 
 private:
-	uint8_t ppuAddressLatchCounter = 0;
+	bool ppuAddressLatchToggle = false;
 };
